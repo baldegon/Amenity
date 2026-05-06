@@ -1,0 +1,14 @@
+# Build artifacts
+bin/
+obj/
+
+# IDE
+.vs/
+.vscode/
+
+# User-specific files
+*.user
+*.suo
+
+# Test results
+TestResults/
