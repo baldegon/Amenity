@@ -9,6 +9,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Reservas.Domain\Reservas.Domain.csproj" />
     <ProjectReference Include="..\src\Reservas.Infrastructure\Reservas.Infrastructure.csproj" />
+    <ProjectReference Include="..\src\Reservas.Application\Reservas.Application.csproj" />
   </ItemGroup>
 
   <ItemGroup>
