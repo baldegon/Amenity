@@ -1,6 +1,6 @@
 namespace Reservas.Application.Properties.Dtos;
 
-public class CreatePropertyRequestDto
+public class UpdatePropertyRequestDto
 {
     public string? Title { get; set; }
 

@@ -392,3 +392,253 @@ Esto baja acoplamiento y hace más fácil crecer después con auth, ownership re
 - por qué Application no debe depender de EF Core
 - por qué `Program.cs` debe ser composition root y no caso de uso
 - `CreatedAtAction` y convenciones REST básicas
+
+---
+
+## 14. Auth base + ownership real de `Property`
+
+### Qué se hizo
+
+Se agregó la primera base real de identidad y seguridad del sistema:
+
+- entidad `User`
+- registro de usuario
+- login
+- hashing de contraseñas con PBKDF2
+- generación de JWT
+- autenticación bearer en la API
+- relación real `User 1:N Properties`
+
+Además, `Property` dejó de confiar en un `UserId` libre enviado por el cliente para crear y listar propiedades.
+
+### Por qué se hizo
+
+Porque antes el sistema tenía un problema serio: cualquier cliente podía mandar un `UserId` arbitrario y actuar como si fuera otro usuario.
+
+Eso rompe:
+
+- seguridad
+- integridad de datos
+- ownership real
+- confianza del producto
+
+La solución correcta fue que la identidad salga del usuario autenticado, no del body del request.
+
+### Qué concepto hay detrás
+
+#### Authentication
+Responde: **quién sos**.
+
+En este proyecto se resuelve con login + JWT.
+
+#### Authorization
+Responde: **qué podés hacer**.
+
+En este proyecto se aplica al dejar que cada usuario opere solo sobre sus propios recursos.
+
+#### Password Hashing
+Las contraseñas no se guardan en texto plano.
+Se guarda un hash seguro para reducir el riesgo en caso de exposición de la base.
+
+#### Ownership
+Una `Property` pertenece a un `User`.
+Eso implica que el backend debe derivar el owner desde la identidad autenticada y no desde datos manipulables del request.
+
+### Qué debería estudiar o repasar
+
+- JWT en ASP.NET Core
+- diferencia entre authentication y authorization
+- claims
+- PBKDF2 / password hashing
+- relación `1:N` entre `User` y `Property`
+- por qué no confiar datos sensibles enviados por el cliente
+
+---
+
+## 15. Endurecimiento de ownership en `Property`
+
+### Qué se hizo
+
+Se cerró la regla de ownership real también para:
+
+- `get by id`
+- `update`
+- `delete`
+
+La validación quedó alineada entre:
+
+- controller
+- service
+- repository
+
+También se agregaron tests y se verificó el comportamiento esperado.
+
+### Por qué se hizo
+
+Porque no alcanza con proteger solo el create o el list.
+
+Si un usuario puede consultar, editar o borrar una propiedad ajena, entonces el sistema sigue estando roto desde el punto de vista de seguridad.
+
+### Qué concepto hay detrás
+
+#### Resource Ownership
+No alcanza con estar autenticado.
+También hay que verificar que el recurso sobre el que actuás te pertenezca.
+
+#### Defense in Depth
+La seguridad no debe descansar en una sola capa.
+Por eso la regla se sostuvo de forma consistente en el flujo de aplicación, no como un parche aislado.
+
+#### 404 vs 403
+Se eligió devolver **404** cuando una property no existe o no pertenece al usuario autenticado.
+
+Esto evita confirmar la existencia de recursos ajenos y reduce enumeración de IDs.
+
+### Qué debería estudiar o repasar
+
+- diferencia entre 404 y 403
+- information leakage
+- resource enumeration
+- ownership checks en APIs REST
+- por qué la seguridad no debe vivir solo en el controller
+
+---
+
+## 16. Estrategia de base de datos y despliegue inicial
+
+### Qué se decidió
+
+Se decidió continuar con **PostgreSQL** como base de datos del producto.
+
+### Por qué se decidió
+
+Porque el proyecto ya está orientado a Postgres y, para un MVP real con despliegue rápido, da un camino más simple y portable que volver a SQL Server.
+
+Además, encaja mejor con un esquema moderno de despliegue cloud para una API .NET.
+
+### Estrategia inicial
+
+- desarrollo local con Docker + PostgreSQL
+- API .NET corriendo localmente
+- despliegue inicial sugerido:
+  - API en Render
+  - base de datos en Neon
+
+### Qué concepto hay detrás
+
+No se elige una base solo por costumbre local.
+Se elige también por:
+
+- portabilidad
+- facilidad de despliegue
+- costo operativo
+- fricción de mantenimiento
+
+### Qué debería estudiar o repasar
+
+- PostgreSQL básico
+- connection strings en ASP.NET Core
+- variables de entorno
+- estrategia de migraciones EF Core
+- diferencia entre entorno local y producción
+
+---
+
+## 17. Plan de estudio recomendado hasta este punto
+
+### Orden sugerido
+
+1. entender el problema del producto en `Requirements.md`
+2. repasar la arquitectura base en este `LEARNING_LOG.md`
+3. entender el flujo de auth
+4. entender ownership de `Property`
+5. recién después pasar a `Reservation`
+
+### Preguntas que debería poder responder
+
+1. ¿Por qué `Program.cs` no debe contener lógica de negocio?
+2. ¿Por qué se creó la capa `Application`?
+3. ¿Qué diferencia hay entre authentication y authorization?
+4. ¿Qué problema resuelve JWT en este proyecto?
+5. ¿Por qué no se debe aceptar `UserId` libre en el request?
+6. ¿Por qué se eligió 404 y no 403 para recursos ajenos?
+
+### Recursos de apoyo
+
+- Microsoft Learn: ASP.NET Core Web API
+- Microsoft Learn: Authentication / Authorization
+- Microsoft Learn: Entity Framework Core
+- documentación oficial de JWT y claims en ASP.NET Core
+- documentación oficial sobre password hashing
+- Martin Fowler: Layered Architecture
+- Clean Architecture / Dependency Direction
+- Nick Chapsas
+- Milan Jovanović
+
+### Idea clave
+
+No estudiar queriendo memorizar clases.
+Estudiar queriendo entender:
+
+- qué problema resuelve cada pieza
+- por qué existe
+- por qué vive en esa capa
+
+Ese cambio mental es el que empieza a formar criterio profesional real.
+
+---
+
+## 14. Ownership real de `Property` para get/update/delete
+
+### Qué se hizo
+
+Se cerró el ownership real de `Property` para las operaciones sensibles del MVP backend:
+
+- `GET /api/properties/{id}` sigue filtrando por usuario autenticado
+- se agregó `PUT /api/properties/{id}` con validación en Application
+- se agregó `DELETE /api/properties/{id}`
+- repository, service y controller quedaron alineados con la misma regla de ownership
+- se agregaron tests para demostrar que un usuario no puede actualizar ni borrar una property ajena
+
+### Por qué se hizo
+
+Porque ligar una property al usuario solo al crearla NO alcanza.
+
+Si después `get-by-id`, `update` o `delete` no verifican ownership, el sistema queda roto desde seguridad: cualquier usuario autenticado podría intentar operar sobre IDs ajenos.
+
+En un MVP serio, la regla no puede ser parcial. Tiene que ser consistente en TODO el recorrido.
+
+### Qué concepto hay detrás
+
+**Autorización por ownership + no enumeración de recursos**.
+
+La decisión elegida fue responder **404** cuando la property no existe **o** cuando existe pero no pertenece al usuario autenticado.
+
+¿Por qué 404 y no 403 en este MVP?
+
+Porque `403` confirma implícitamente que el recurso existe pero no te pertenece.
+Eso ayuda a enumerar recursos ajenos.
+
+Con `404`, desde afuera el mensaje es el mismo:
+
+> "para vos, este recurso no existe"
+
+Eso es más seguro y además mantiene una política simple y coherente para `get-by-id`, `update` y `delete`.
+
+También quedó una idea importante: la autorización NO debe depender solo del controller.
+La capa Application y el repository tienen que colaborar para que la consulta/actualización llegue ya filtrada por `UserId`.
+
+### Qué debería estudiar o repasar
+
+- diferencia entre autenticación y autorización
+- ownership-based access control
+- cuándo usar `404` vs `403`
+- por qué las reglas de acceso deben ser consistentes entre controller, service y repository
+
+### Próximo paso sugerido
+
+El siguiente batch lógico es endurecer todavía más el módulo `Property` antes de pasar a `Reservation`:
+
+- tests más integrados de persistence/auth
+- estandarizar resultados de aplicación para casos `validation/not-found`
+- revisar si conviene ocultar `UserId` en ciertos response DTOs públicos del futuro
