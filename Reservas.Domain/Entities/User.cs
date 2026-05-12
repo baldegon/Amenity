@@ -8,6 +8,8 @@ public class User
 
     public string PasswordHash { get; set; } = string.Empty;
 
+    public string Role { get; set; } = "Owner";
+
     public DateTime CreatedAtUtc { get; set; }
 
     public ICollection<Property> Properties { get; set; } = new List<Property>();

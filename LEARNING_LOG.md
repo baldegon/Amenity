@@ -642,3 +642,134 @@ El siguiente batch lógico es endurecer todavía más el módulo `Property` ante
 - tests más integrados de persistence/auth
 - estandarizar resultados de aplicación para casos `validation/not-found`
 - revisar si conviene ocultar `UserId` en ciertos response DTOs públicos del futuro
+
+---
+
+## 18. Reservation foundation con ownership real y regla anti-solapamiento
+
+### Qué se hizo
+
+Se agregó la primera base real del módulo de reservas:
+
+- entidad `Reservation`
+- relación `Property 1:N Reservations`
+- DTOs de create/list/cancel
+- contrato `IReservationRepository`
+- `ReservationService` en Application
+- `ReservationsController` anidado bajo `api/properties/{propertyId}/reservations`
+- persistencia EF Core + migración
+- tests de reglas críticas
+
+Además, la reserva calcula `TotalPrice` en backend y no permite crear reservas activas solapadas para la misma property.
+
+### Por qué se hizo
+
+Porque ya no alcanzaba con tener auth y ownership de properties.
+
+El MVP necesita empezar a cerrar el caso de negocio central: una property tiene disponibilidad implícita y el sistema debe impedir que el owner genere reservas inconsistentes.
+
+Si el backend permitiera:
+
+- fechas inválidas
+- reservas solapadas
+- operar reservas sobre properties ajenas
+
+entonces el módulo nacería roto desde dominio y desde seguridad.
+
+### Qué concepto hay detrás
+
+#### Ownership transitivo
+La reserva NO referencia todavía a `User`.
+
+Se eligió el mínimo correcto para este batch: `Reservation` depende de `Property`, y el ownership se resuelve transitivamente por `Property.UserId`.
+
+Eso alcanza para las operaciones owner-side actuales sin meter una relación extra que todavía no aporta una regla de negocio real.
+
+#### Interval overlap
+Dos reservas activas se consideran solapadas cuando:
+
+- `existing.StartDate < new.EndDate`
+- `new.StartDate < existing.EndDate`
+
+Esta forma evita errores comunes de bordes y permite que una reserva termine el mismo día en que otra empieza, sin contar eso como conflicto.
+
+#### Backend como fuente de verdad
+`TotalPrice` se calcula en servidor usando:
+
+- cantidad de noches = `EndDate - StartDate`
+- precio por noche actual de la property
+
+Eso evita confiar en un monto enviado por cliente, que sería manipulable.
+
+#### Cancelar != borrar
+Se eligió cancelación lógica con `Status` + `CancelledAtUtc`.
+
+Esto conserva trazabilidad mínima y además permite que una reserva cancelada deje de bloquear disponibilidad futura.
+
+### Qué debería estudiar o repasar
+
+- modelado de intervalos de fechas
+- diferencias entre cancelación lógica y borrado físico
+- aggregate boundaries básicos
+- cuándo una relación extra (`Reservation -> User`) agrega valor real y cuándo es ruido
+- por qué el backend debe calcular datos derivados sensibles
+
+### Preguntas que debería poder responder ahora
+
+1. ¿Por qué `StartDate < EndDate` y no `<=`?
+2. ¿Cómo se detecta un solapamiento de intervalos sin caer en casos borde?
+3. ¿Por qué `TotalPrice` no debería venir del cliente?
+4. ¿Por qué en este batch `Reservation` no necesita todavía un `UserId` propio?
+5. ¿Qué ventaja da cancelar lógicamente en vez de borrar la fila?
+
+---
+
+## 19. Cierre de Día 1 MVP — auth mínima real y entendible
+
+### Qué se hizo
+
+Se terminó de dejar cerrada la base mínima de autenticación del MVP con estas piezas alineadas:
+
+- `User` persistido con `Email`, `PasswordHash`, `Role` y `CreatedAtUtc`
+- register/login por controller tradicional
+- hashing PBKDF2 para no guardar contraseñas en texto plano
+- JWT con claims de `user id`, `email` y `role`
+- migración para persistir el rol simple del usuario
+
+### Por qué se hizo
+
+Porque el MVP no necesitaba un sistema de permisos complejo, pero SÍ necesitaba una identidad real sobre la cual apoyar ownership y autorización básica.
+
+Se eligió un `Role` string simple porque enseña el concepto sin meter ruido innecesario:
+
+- no agrega complejidad de roles jerárquicos
+- deja la puerta abierta para crecer después
+- mantiene el modelo fácil de leer para esta etapa
+
+### Qué concepto hay detrás
+
+#### Claims como contrato de identidad
+
+El JWT no es solo un "ticket de acceso".
+También es el contrato mínimo con el que la API entiende quién hace la request.
+
+Por eso se incluyeron claims concretos y útiles para el MVP:
+
+- identificador del usuario
+- email
+- role
+
+#### Simplicidad intencional
+
+Acá había una tentación clásica: empezar con permisos sofisticados "por si después hacen falta".
+
+Eso para un MVP es una mala decisión.
+Primero resolvemos la identidad REAL y el ownership básico.
+Después, si el producto lo pide, escalamos autorización.
+
+### Qué debería estudiar o repasar
+
+- diferencia entre entidad de usuario y claims del token
+- cuándo usar un `Role` simple y cuándo un sistema de permisos más rico
+- por qué PBKDF2 sigue siendo una opción válida para un MVP backend en .NET
+- cómo una migración acompaña cambios reales del dominio sin mezclar lógica HTTP

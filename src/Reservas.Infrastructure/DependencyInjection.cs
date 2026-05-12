@@ -5,9 +5,11 @@ using Microsoft.Extensions.Options;
 using Reservas.Application.Auth.Repositories;
 using Reservas.Application.Auth.Services;
 using Reservas.Application.Properties.Repositories;
+using Reservas.Application.Reservations.Repositories;
 using Reservas.Infrastructure.Auth;
 using Reservas.Infrastructure.Data;
 using Reservas.Infrastructure.Properties;
+using Reservas.Infrastructure.Reservations;
 
 namespace Reservas.Infrastructure;
 
@@ -35,6 +37,7 @@ public static class DependencyInjection
         services.AddScoped<IPasswordHasher, Pbkdf2PasswordHasher>();
         services.AddScoped<ITokenGenerator, JwtTokenGenerator>();
         services.AddScoped<IPropertyRepository, PropertyRepository>();
+        services.AddScoped<IReservationRepository, ReservationRepository>();
 
         return services;
     }

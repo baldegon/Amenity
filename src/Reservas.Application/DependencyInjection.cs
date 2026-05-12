@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Reservas.Application.Auth.Services;
 using Reservas.Application.Properties.Services;
+using Reservas.Application.Reservations.Services;
 
 namespace Reservas.Application;
 
@@ -10,6 +11,7 @@ public static class DependencyInjection
     {
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IPropertyService, PropertyService>();
+        services.AddScoped<IReservationService, ReservationService>();
 
         return services;
     }

@@ -11,4 +11,6 @@ public class Property
     public int UserId { get; set; }
 
     public User? User { get; set; }
+
+    public ICollection<Reservation> Reservations { get; set; } = new List<Reservation>();
 }

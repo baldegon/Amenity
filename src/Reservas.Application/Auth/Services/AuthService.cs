@@ -8,6 +8,8 @@ namespace Reservas.Application.Auth.Services;
 
 public class AuthService : IAuthService
 {
+    private const string DefaultRole = "Owner";
+
     private readonly IUserRepository _userRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly ITokenGenerator _tokenGenerator;
@@ -48,6 +50,7 @@ public class AuthService : IAuthService
         {
             Email = email,
             PasswordHash = _passwordHasher.Hash(request.Password!),
+            Role = DefaultRole,
             CreatedAtUtc = DateTime.UtcNow
         };
 
@@ -84,6 +87,7 @@ public class AuthService : IAuthService
         {
             UserId = user.Id,
             Email = user.Email,
+            Role = user.Role,
             AccessToken = token.AccessToken,
             ExpiresAtUtc = token.ExpiresAtUtc
         };
